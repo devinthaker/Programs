@@ -72,6 +72,8 @@ public class WebWorker implements Runnable
 	/**
 	 * Read the HTTP request header.
 	 **/
+	// do stuff in here!! 1:06:33 on lecture https://nmsu.zoom.us/rec/play/26t70pN1oiOjn1ZIj7_VmCVBpymEok_7teP-nA6uPrydyzQhRC0I5-nIttqF_3OlgjdYmFlrO1EVZNpe.zK3MISxBPjB2UoRT
+
 	private void readHTTPRequest(InputStream is)
 	{
 		String line;
@@ -79,14 +81,14 @@ public class WebWorker implements Runnable
 		while (true)
 		{
 			try
-			{
+			{//figure out what file I need to serve
 				while (!r.ready())
 					Thread.sleep(1);
 				line = r.readLine();
 				System.err.println("Request line: (" + line + ")");
 				if (line.length() == 0)
 					break;
-			}
+			}//to here
 			catch (Exception e)
 			{
 				System.err.println("Request error: " + e);
@@ -104,6 +106,8 @@ public class WebWorker implements Runnable
 	 * @param contentType
 	 *          is the string MIME content type (e.g. "text/html")
 	 **/
+	//processing files and pushing them
+	//this does the header part
 	private void writeHTTPHeader(OutputStream os, String contentType) throws Exception
 	{
 		Date d = new Date();
@@ -130,6 +134,7 @@ public class WebWorker implements Runnable
 	 * @param os
 	 *          is the OutputStream object to write to
 	 **/
+	//send back a file
 	private void writeContent(OutputStream os) throws Exception
 	{
 		os.write("<html><head></head><body>\n".getBytes());
