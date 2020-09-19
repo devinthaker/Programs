@@ -27,12 +27,18 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.text.DateFormat;
+import java.time.LocalDate;
 import java.util.Date;
+import java.util.Scanner;
 import java.util.TimeZone;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.io.FileReader;
+
 
 public class WebWorker implements Runnable
 {
-
 	private Socket socket;
 
 	/**
@@ -55,9 +61,39 @@ public class WebWorker implements Runnable
 		{
 			InputStream is = socket.getInputStream();
 			OutputStream os = socket.getOutputStream();
-			readHTTPRequest(is);
-			writeHTTPHeader(os, "text/html");
-			writeContent(os);
+			String path = readHTTPRequest(is);
+			writeHTTPHeader(os,"text/html",path);
+			if(path.equals("")) {
+				writeContent(os);
+			}
+			else {
+				try {
+					FileReader input = new FileReader(path);
+					Scanner scan = new Scanner(input);
+					String file = "";
+					while (scan.hasNextLine()){
+						file = scan.nextLine();
+						int tag = file.indexOf("<cs371date>");
+						int tag1 = file.indexOf("<cs371server>");
+						while(tag != -1 && tag1 != -1){
+							LocalDate date = LocalDate.now();
+							String found = file.substring(0,tag) +
+									date + file.substring(tag+11,file.length());
+							file = found;
+							found = file.substring(0,tag1-1) +
+									"Devin's Server" + file.substring(tag1+12,file.length());
+							file = found;
+							tag = file.indexOf("<cs371date>");
+							tag1 = file.indexOf("<cs371server>");
+						}
+						os.write(file.getBytes());
+					}
+					scan.close();
+
+				}catch(Exception e){
+					System.err.println("Output error: " + e);
+				}
+			}
 			os.flush();
 			socket.close();
 		}
@@ -74,8 +110,10 @@ public class WebWorker implements Runnable
 	 **/
 	// do stuff in here!! 1:06:33 on lecture https://nmsu.zoom.us/rec/play/26t70pN1oiOjn1ZIj7_VmCVBpymEok_7teP-nA6uPrydyzQhRC0I5-nIttqF_3OlgjdYmFlrO1EVZNpe.zK3MISxBPjB2UoRT
 
-	private void readHTTPRequest(InputStream is)
+	private String readHTTPRequest(InputStream is)
 	{
+		String path = null;
+		boolean GETdefault = false;
 		String line;
 		BufferedReader r = new BufferedReader(new InputStreamReader(is));
 		while (true)
@@ -86,16 +124,19 @@ public class WebWorker implements Runnable
 					Thread.sleep(1);
 				line = r.readLine();
 				System.err.println("Request line: (" + line + ")");
+				if (line.contains("GET")){
+					path = line.substring(5, line.length() - 9);
+				}
 				if (line.length() == 0)
 					break;
-			}//to here
+			}
 			catch (Exception e)
 			{
 				System.err.println("Request error: " + e);
 				break;
 			}
 		}
-		return;
+		return path;
 	}
 
 	/**
@@ -108,12 +149,20 @@ public class WebWorker implements Runnable
 	 **/
 	//processing files and pushing them
 	//this does the header part
-	private void writeHTTPHeader(OutputStream os, String contentType) throws Exception
+	private void writeHTTPHeader(OutputStream os, String contentType, String path) throws Exception
 	{
+		boolean err404 = false;
 		Date d = new Date();
 		DateFormat df = DateFormat.getDateTimeInstance();
 		df.setTimeZone(TimeZone.getTimeZone("GMT"));
-		os.write("HTTP/1.1 200 OK\n".getBytes());
+		try{
+			FileReader file = new FileReader(path);
+		}catch(Exception e){
+			os.write("HTTP/1.0 404 Not Found\n".getBytes());
+			err404 = true;
+		}
+		if(!err404)
+		os.write("HTTP/1.1 200 OK\n".getBytes()); //if it is valid show this or else 404 not found
 		os.write("Date: ".getBytes());
 		os.write((df.format(d)).getBytes());
 		os.write("\n".getBytes());
@@ -137,8 +186,10 @@ public class WebWorker implements Runnable
 	//send back a file
 	private void writeContent(OutputStream os) throws Exception
 	{
+
 		os.write("<html><head></head><body>\n".getBytes());
 		os.write("<h3>My web server works!</h3>\n".getBytes());
+		os.write("<link rel=\"shortcut icon\" href=\"favicon.ico\"/>".getBytes());
 		os.write("</body></html>\n".getBytes());
 	}
 
