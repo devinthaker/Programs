@@ -16,7 +16,7 @@ package edu.nmsu.cs.webserver;
  * request; it writes out an HTTP header to begin its response, and then it writes out some HTML
  * content for the response content. HTTP requests and responses are just lines of text (in a very
  * particular format).
- * 
+ *
  * @author Jon Cook, Ph.D.
  *
  **/
@@ -27,170 +27,139 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.text.DateFormat;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Date;
 import java.util.Scanner;
 import java.util.TimeZone;
-import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.io.FileReader;
 
 
-public class WebWorker implements Runnable
-{
-	private Socket socket;
+public class WebWorker implements Runnable {
+    private Socket socket;
 
-	/**
-	 * Constructor: must have a valid open socket
-	 **/
-	public WebWorker(Socket s)
-	{
-		socket = s;
-	}
+    /**
+     * Constructor: must have a valid open socket
+     **/
+    public WebWorker(Socket s) {
+        socket = s;
+    }
 
-	/**
-	 * Worker thread starting point. Each worker handles just one HTTP request and then returns, which
-	 * destroys the thread. This method assumes that whoever created the worker created it with a
-	 * valid open socket object.
-	 **/
-	public void run()
-	{
-		System.err.println("Handling connection...");
-		try
-		{
-			InputStream is = socket.getInputStream();
-			OutputStream os = socket.getOutputStream();
-			String path = readHTTPRequest(is);
-			writeHTTPHeader(os,"text/html",path);
-			if(path.equals("")) {
-				writeContent(os);
-			}
-			else {
-				try {
-					FileReader input = new FileReader(path);
-					Scanner scan = new Scanner(input);
-					String file = "";
-					while (scan.hasNextLine()){
-						file = scan.nextLine();
-						int tag = file.indexOf("<cs371date>");
-						int tag1 = file.indexOf("<cs371server>");
-						while(tag != -1 && tag1 != -1){
-							LocalDate date = LocalDate.now();
-							String found = file.substring(0,tag) +
-									date + file.substring(tag+11,file.length());
-							file = found;
-							found = file.substring(0,tag1-1) +
-									"Devin's Server" + file.substring(tag1+12,file.length());
-							file = found;
-							tag = file.indexOf("<cs371date>");
-							tag1 = file.indexOf("<cs371server>");
-						}
-						os.write(file.getBytes());
-					}
-					scan.close();
+    /**
+     * Worker thread starting point. Each worker handles just one HTTP request and then returns, which
+     * destroys the thread. This method assumes that whoever created the worker created it with a
+     * valid open socket object.
+     **/
 
-				}catch(Exception e){
-					System.err.println("Output error: " + e);
-				}
-			}
-			os.flush();
-			socket.close();
-		}
-		catch (Exception e)
-		{
-			System.err.println("Output error: " + e);
-		}
-		System.err.println("Done handling connection.");
-		return;
-	}
+    public void run() {
+        System.err.println("Handling connection...");
+        try {
+            InputStream is = socket.getInputStream();
+            OutputStream os = socket.getOutputStream();
+            String fileReq;
+            fileReq = readHTTPRequest(is);
+            writeHTTPHeader(os, "text/html", fileReq);
+            if (fileReq.equals("")) {
+                writeContent(os);
+            } else {
+                try {
+                    FileReader input = new FileReader(fileReq);
+                    Scanner scan = new Scanner(input);
+                    String file = "";
+                    DateTimeFormatter dtf = DateTimeFormatter.ofPattern("MM/dd/yyyy");
+                    LocalDateTime now = LocalDateTime.now();
+                    String date = dtf.format(now);
+                    while (scan.hasNextLine()) {
+                        file = scan.nextLine();
+                        file = file.replaceAll("<cs371date>", date);
+                        file = file.replaceAll("<cs371server>", "Devin's Server");
+                        os.write(file.getBytes());
+                    }
+                    scan.close();
+                } catch (Exception e) {
+                    System.err.println("Output error: " + e);
+                }
+            }
+            os.flush();
+            socket.close();
+        } catch (Exception e) {
+            System.err.println("Output error: " + e);
+        }
+        System.err.println("Done handling connection.");
+    }
 
-	/**
-	 * Read the HTTP request header.
-	 **/
-	// do stuff in here!! 1:06:33 on lecture https://nmsu.zoom.us/rec/play/26t70pN1oiOjn1ZIj7_VmCVBpymEok_7teP-nA6uPrydyzQhRC0I5-nIttqF_3OlgjdYmFlrO1EVZNpe.zK3MISxBPjB2UoRT
+    /**
+     * Read the HTTP request header.
+     **/
+    private String readHTTPRequest(InputStream is) {
 
-	private String readHTTPRequest(InputStream is)
-	{
-		String path = null;
-		boolean GETdefault = false;
-		String line;
-		BufferedReader r = new BufferedReader(new InputStreamReader(is));
-		while (true)
-		{
-			try
-			{//figure out what file I need to serve
-				while (!r.ready())
-					Thread.sleep(1);
-				line = r.readLine();
-				System.err.println("Request line: (" + line + ")");
-				if (line.contains("GET")){
-					path = line.substring(5, line.length() - 9);
-				}
-				if (line.length() == 0)
-					break;
-			}
-			catch (Exception e)
-			{
-				System.err.println("Request error: " + e);
-				break;
-			}
-		}
-		return path;
-	}
+        boolean GETdefault = false;
+        String fileReq = null;
+        String line;
+        BufferedReader r = new BufferedReader(new InputStreamReader(is));
+        while (true) {
+            try {
+                while (!r.ready())
+                    Thread.sleep(1);
+                line = r.readLine();
+                System.err.println("Request line: (" + line + ")");
+                if (line.contains("GET")) {
+                    fileReq = line.substring(5, line.length() - 9); // code was developed in part by Dr. Toups
+                }
+                if (line.length() == 0)
+                    break;
+            } catch (Exception e) {
+                System.err.println("Request error: " + e);
+                break;
+            }
+        }
+        return fileReq;
+    }
 
-	/**
-	 * Write the HTTP header lines to the client network connection.
-	 * 
-	 * @param os
-	 *          is the OutputStream object to write to
-	 * @param contentType
-	 *          is the string MIME content type (e.g. "text/html")
-	 **/
-	//processing files and pushing them
-	//this does the header part
-	private void writeHTTPHeader(OutputStream os, String contentType, String path) throws Exception
-	{
-		boolean err404 = false;
-		Date d = new Date();
-		DateFormat df = DateFormat.getDateTimeInstance();
-		df.setTimeZone(TimeZone.getTimeZone("GMT"));
-		try{
-			FileReader file = new FileReader(path);
-		}catch(Exception e){
-			os.write("HTTP/1.0 404 Not Found\n".getBytes());
-			err404 = true;
-		}
-		if(!err404)
-		os.write("HTTP/1.1 200 OK\n".getBytes()); //if it is valid show this or else 404 not found
-		os.write("Date: ".getBytes());
-		os.write((df.format(d)).getBytes());
-		os.write("\n".getBytes());
-		os.write("Server: Jon's very own server\n".getBytes());
-		// os.write("Last-Modified: Wed, 08 Jan 2003 23:11:55 GMT\n".getBytes());
-		// os.write("Content-Length: 438\n".getBytes());
-		os.write("Connection: close\n".getBytes());
-		os.write("Content-Type: ".getBytes());
-		os.write(contentType.getBytes());
-		os.write("\n\n".getBytes()); // HTTP header ends with 2 newlines
-		return;
-	}
+    /**
+     * Write the HTTP header lines to the client network connection.
+     *
+     * @param os
+     *          is the OutputStream object to write to
+     * @param contentType
+     *          is the string MIME content type (e.g. "text/html")
+     **/
+    private void writeHTTPHeader(OutputStream os, String contentType, String fileReq) throws Exception {
+        boolean err404 = false;
+        Date d = new Date();
+        DateFormat df = DateFormat.getDateTimeInstance();
+        df.setTimeZone(TimeZone.getTimeZone("GMT"));
+        try {
+            FileReader file = new FileReader(fileReq);
+        } catch (Exception e) {
+            os.write("HTTP/1.0 404 Not Found\n".getBytes());
+            err404 = true;
+        }
+        if (!err404)
+            os.write("HTTP/1.1 200 OK\n".getBytes()); //if it is valid show this or else 404 not found
+            os.write("Date: ".getBytes());
+            os.write((df.format(d)).getBytes());
+            os.write("\n".getBytes());
+            os.write("Server: Devin's server\n".getBytes());
+            os.write("Connection: close\n".getBytes());
+            os.write("Content-Type: ".getBytes());
+            os.write(contentType.getBytes());
+            os.write("\n\n".getBytes()); // HTTP header ends with 2 newlines
+    }
 
-	/**
-	 * Write the data content to the client network connection. This MUST be done after the HTTP
-	 * header has been written out.
-	 * 
-	 * @param os
-	 *          is the OutputStream object to write to
-	 **/
-	//send back a file
-	private void writeContent(OutputStream os) throws Exception
-	{
+    /**
+     * Write the data content to the client network connection. This MUST be done after the HTTP
+     * header has been written out.
+     *
+     * @param os
+     *          is the OutputStream object to write to
+     **/
+    private void writeContent(OutputStream os) throws Exception {
 
-		os.write("<html><head></head><body>\n".getBytes());
-		os.write("<h3>My web server works!</h3>\n".getBytes());
-		os.write("<link rel=\"shortcut icon\" href=\"favicon.ico\"/>".getBytes());
-		os.write("</body></html>\n".getBytes());
-	}
+        os.write("<html><head></head><body>\n".getBytes());
+        os.write("<h3>My web server works!</h3>\n".getBytes());
+        os.write("<p> Today's date is: <cs371date> The server is <cs731server>. </p>".getBytes());
+        os.write("</body></html>\n".getBytes());
+    }
 
 } // end class
