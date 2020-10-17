@@ -21,18 +21,15 @@ package edu.nmsu.cs.webserver;
  *
  **/
 
-import java.io.BufferedReader;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.Socket;
+import java.nio.file.Files;
 import java.text.DateFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Date;
 import java.util.Scanner;
 import java.util.TimeZone;
-import java.io.FileReader;
 
 
 public class WebWorker implements Runnable {
@@ -104,7 +101,8 @@ public class WebWorker implements Runnable {
                 line = r.readLine();
                 System.err.println("Request line: (" + line + ")");
                 if (line.contains("GET")) {
-                    fileReq = line.substring(5, line.length() - 9); // code was developed in part by Dr. Toups
+                    fileReq = "./" + line.substring(5, line.length() - 9); // code was developed in part by Dr. Toups
+                    System.out.println(fileReq);
                 }
                 if (line.length() == 0)
                     break;
@@ -131,12 +129,15 @@ public class WebWorker implements Runnable {
         df.setTimeZone(TimeZone.getTimeZone("GMT"));
         try {
             FileReader file = new FileReader(fileReq);
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             os.write("HTTP/1.0 404 Not Found\n".getBytes());
             err404 = true;
         }
-        if (!err404)
+        if (!err404){
             os.write("HTTP/1.1 200 OK\n".getBytes()); //if it is valid show this or else 404 not found
+            File filepath = new File (fileReq);
+            contentType = Files.probeContentType(filepath.toPath()); //
             os.write("Date: ".getBytes());
             os.write((df.format(d)).getBytes());
             os.write("\n".getBytes());
@@ -145,6 +146,7 @@ public class WebWorker implements Runnable {
             os.write("Content-Type: ".getBytes());
             os.write(contentType.getBytes());
             os.write("\n\n".getBytes()); // HTTP header ends with 2 newlines
+            }
     }
 
     /**
